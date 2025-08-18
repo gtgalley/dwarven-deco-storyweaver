@@ -7,13 +7,190 @@
   <link rel="stylesheet" href="./public/css/skin.css" />
 </head>
 <body>
-  <!-- The same HTML body from your Canvas file up to (but not including) the <script> tag. -->
-  <!-- Tip: Copy the whole <body> content from Canvas and paste it here, BUT remove any <style> or <script>. -->
+  <div class="wrap">
+    <aside class="side">
+      <h1 class="brand">Dwarven Deco Storyweaver</h1>
+      <div class="card" id="charCard">
+        <h3 style="margin:0 0 8px 0">Character</h3>
+        <div id="charSummary"></div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn" id="btnEditChar">Edit</button>
+          <button class="btn" id="btnReroll">Reroll</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">Stats</h3>
+        <div id="statGrid"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="btnHeal">Small Rest (+3 HP)</button>
+          <button class="btn red" id="btnRisk">Risky Push (-2 to +6 HP)</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">Purse & Pack</h3>
+        <div class="statrow"><div>Gold</div><div id="goldBox">0</div></div>
+        <div class="inv" id="inv"></div>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">Session</h3>
+        <div class="row">
+          <button class="btn" id="btnSave">Save</button>
+          <button class="btn" id="btnLoad">Load</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="btnExport">Export</button>
+          <button class="btn" id="btnUndo">Undo</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn gold" id="btnEnd">End the Story</button>
+          <button class="btn" id="btnNew">New Run</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="btnAudio">Audio: Off</button>
+          <button class="btn" id="btnSeed">Seed</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="btnLive">Live DM: Off</button>
+          <button class="btn" id="btnDMConfig">DM Config</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">Quest Flags</h3>
+        <div id="flags"></div>
+      </div>
+      <div class="card">
+        <small>Tip: choices are short; the story beat appears after you choose. Hover the ⟡ for roll info.</small>
+      </div>
+    </aside>
 
-  <!-- Mount point is already in that HTML (your existing DOM). Now load the engine: -->
+    <main class="main">
+      <canvas id="stage"></canvas>
+      <div class="chrome" aria-hidden="true">
+        <div class="deco tl"></div>
+        <div class="deco tr"></div>
+        <div class="deco bl"></div>
+        <div class="deco br"></div>
+        <div class="deco-mid"></div>
+      </div>
+      <section class="pane" role="main" aria-live="polite">
+        <div class="storybox">
+          <div class="story" id="story"></div>
+          <div class="choices" id="choices"></div>
+          <div class="inputbar">
+            <input id="freeText" type="text" placeholder="Write your own answer… (e.g., ‘Investigate the obelisk’)">
+            <button class="btn gold" id="btnSubmitFree">Act</button>
+          </div>
+          <div class="log" id="log" aria-label="Recent events"></div>
+        </div>
+        <div class="foot">
+          <div>
+            <span>Turn: <b id="turn">0</b></span>
+            <span class="tag" id="tagScene">—</span>
+            <span class="tag" id="tagEngine">Local</span>
+          </div>
+          <div class="muted">A tale in brass and shadow.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Character Builder Modal -->
+  <div class="modal" id="modalChar">
+    <div class="inner">
+      <header>
+        <div>Create your Adventurer</div>
+        <div class="closeX" id="xChar">✕</div>
+      </header>
+      <div class="content">
+        <div class="row">
+          <div>
+            <label>Name<br><input id="cName" type="text" placeholder="e.g., Eldan of Brassreach" style="width:100%;padding:10px;border-radius:8px;background:#0d141a;border:1px solid var(--gold2);color:var(--ink)"></label>
+          </div>
+          <div>
+            <label>Background<br>
+              <select id="cBg" style="width:100%;padding:10px;border-radius:8px;background:#0d141a;border:1px solid var(--gold2);color:var(--ink)">
+                <option value="Delver">Delver</option>
+                <option value="Wrightsinger">Wrightsinger</option>
+                <option value="Rune-Broker">Rune‑Broker</option>
+                <option value="Wayfarer">Wayfarer</option>
+                <option value="Archivist">Archivist</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div>
+            <label>Temper (Trait)<br>
+              <select id="cTrait" style="width:100%;padding:10px;border-radius:8px;background:#0d141a;border:1px solid var(--gold2);color:var(--ink)">
+                <option value="Steadfast">Steadfast</option>
+                <option value="Canny">Canny</option>
+                <option value="Silver-Tongued">Silver‑Tongued</option>
+                <option value="Fleet">Fleet</option>
+                <option value="Farsighted">Farsighted</option>
+              </select>
+            </label>
+          </div>
+          <div>
+            <label>Seed (optional)<br><input id="cSeed" type="text" placeholder="randomized" style="width:100%;padding:10px;border-radius:8px;background:#0d141a;border:1px solid var(--gold2);color:var(--ink)"></label>
+          </div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <div>
+            <label>Allocate Points (24)
+              <div id="ptTotal" class="tag">left: 24</div>
+            </label>
+            <div id="alloc"></div>
+          </div>
+          <div>
+            <div class="row3">
+              <button class="btn" id="btnAutoChar">Auto-generate</button>
+              <button class="btn gold" id="btnStart">Begin Tale</button>
+              <button class="btn" id="btnResetAlloc">Reset</button>
+            </div>
+            <div style="margin-top:12px;font-size:.95rem;color:#c8bb87">
+              <p>STR helps force and melee; DEX helps stealth and finesse; INT helps lore and perception; CHA helps talk and bargains.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DM Config Modal -->
+  <div class="modal" id="modalDM">
+    <div class="inner">
+      <header>
+        <div>Live DM Settings</div>
+        <div class="closeX" id="xDM">✕</div>
+      </header>
+      <div class="content">
+        <label>Endpoint (serverless function URL)<br>
+          <input id="dmEndpoint" type="text" placeholder="/dm-turn" style="width:100%;padding:10px;border-radius:8px;background:#0d141a;border:1px solid var(--gold2);color:var(--ink)">
+        </label>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="btnSaveDM">Save</button>
+          <button class="btn" id="btnTestDM">Test</button>
+        </div>
+        <div id="dmStatus" style="margin-top:10px;color:#c8bb87"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Epilogue Modal -->
+  <div class="modal" id="modalEpi">
+    <div class="inner">
+      <header>
+        <div id="epiTitle">Epilogue</div>
+        <div class="closeX" id="xEpi">✕</div>
+      </header>
+      <div class="content" id="epiContent"></div>
+    </div>
+  </div>
+
+  <!-- Load the engine module (you'll create this in Step 3) -->
   <script type="module">
     import { boot } from './public/js/engine.js';
-    boot();   // initializes listeners, UI, etc.
+    boot();
   </script>
 </body>
 </html>
