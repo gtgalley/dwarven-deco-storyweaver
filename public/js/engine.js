@@ -55,6 +55,8 @@ export function boot() {
   hydrateFromStorage();
   bindHandlers();
   renderAll();
+  // auto-begin if no beats yet
+  if (Engine.state.storyBeats.length === 0) beginTale();
 }
 
 /* ---------- UI construction ---------- */
@@ -177,7 +179,8 @@ function buildUI() {
 
   // cache refs
   Engine.el.storyScroll = $('#storyScroll');
-  Engine.el.choices = $('#choices');
+  Engine.el.choicesBox = document.querySelector('.choices');
+  Engine.el.choiceList = document.getElementById('choices');
   Engine.el.charPanel = $('#charPanel');
   Engine.el.flagPanel = $('#flagPanel');
 
@@ -336,9 +339,14 @@ function beginTale(){
   S.storyBeats = [];
   S.transcript = [];
   S.flags = { rumors: true, seals: [], bossReady: false, bossDealtWith: false };
+
   appendBeat("Torches breathe along brasswork and shadow. Rumors speak of an otherworldly tide — the Unfathomer — pooling beneath the city’s vaults. You stand at the threshold of the Halls, where echoing floors remember every step.");
+
+  // ensure visible choices immediately
+  const firstChoices = makeChoiceSet(S.scene);
+  renderChoices(firstChoices);
+
   S.turn++;
-  renderChoices(makeChoiceSet(S.scene));
   renderAll();
 }
 
@@ -364,8 +372,8 @@ function undoTurn(){
 
 /* ---------- Choices & actions ---------- */
 function renderChoices(choices, maybeBoss){
-  const box = Engine.el.choices;
-  const list = Engine.el.choices.querySelector('#choices');
+  const list = Engine.el.choiceList;
+  if (!list) return;
   list.innerHTML = '';
 
   const addBtn = (ch) => {
@@ -376,7 +384,7 @@ function renderChoices(choices, maybeBoss){
     list.appendChild(btn);
   };
 
-  if (choices) choices.forEach(addBtn);
+  (choices || []).forEach(addBtn);
   if (maybeBoss) addBtn(maybeBoss);
 }
 
@@ -407,6 +415,7 @@ function freeTextAct(){
   const text = (Engine.el.freeText.value || '').trim();
   if (!text) return;
   Engine.el.freeText.value = '';
+
   const stat = inferStat(text);
   const S = Engine.state, C = S.character;
   const mod = modFromScore(C[stat]);
@@ -423,9 +432,13 @@ function freeTextAct(){
     history: recentHistory()
   };
 
-  Weaver.turn(payload, localTurn).then((resp)=>{
-    applyTurnResult(resp, {r, mod, dc, total});
-  });
+  Weaver.turn(payload, localTurn)
+    .then((resp)=> applyTurnResult(resp, {r, mod, dc, total}))
+    .catch(()=> {
+      // absolute fallback: local narration if something unexpected happens
+      const resp = localTurn(payload);
+      applyTurnResult(resp, {r, mod, dc, total});
+    });
 }
 
 function applyTurnResult(resp, roll){
@@ -449,7 +462,10 @@ function applyTurnResult(resp, roll){
   // Next choices
   let maybeBoss = resp.maybe_boss_option || null;
   renderChoices(resp.next_choices || makeChoiceSet(S.scene), maybeBoss);
-
+  
+  let next = resp.next_choices && resp.next_choices.length ? resp.next_choices : makeChoiceSet(Engine.state.scene);
+  renderChoices(next, maybeBoss);
+  
   // scene stays or changes if response set it
   if (resp.scene) S.scene = resp.scene;
 
