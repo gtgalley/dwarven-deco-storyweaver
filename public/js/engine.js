@@ -52,6 +52,10 @@ const Weaver = makeWeaver(store,
 /* ---------- UI boot ---------- */
 export function boot() {
   buildUI();
+  window.addEventListener('error', (e)=>{
+  appendBeat(`[script error] ${e.message}`);
+  renderAll();
+});
   hydrateFromStorage();
   bindHandlers();
   renderAll();
@@ -345,7 +349,8 @@ function beginTale(){
   // ensure visible choices immediately
   const firstChoices = makeChoiceSet(S.scene);
   renderChoices(firstChoices);
-
+  if (Engine.el.choicesBox) Engine.el.choicesBox.style.display = 'block';
+  
   S.turn++;
   renderAll();
 }
@@ -372,11 +377,15 @@ function undoTurn(){
 
 /* ---------- Choices & actions ---------- */
 function renderChoices(choices, maybeBoss){
-  const list = Engine.el.choiceList;
+  // Be robust: prefer the inner list, fall back to the box itself.
+  const list = Engine.el.choiceList || Engine.el.choicesBox;
   if (!list) return;
+
+  // If we fell back to the box, make sure it's empty.
   list.innerHTML = '';
 
   const addBtn = (ch) => {
+    if (!ch || !ch.sentence) return;
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
     btn.textContent = ch.sentence;
@@ -386,6 +395,9 @@ function renderChoices(choices, maybeBoss){
 
   (choices || []).forEach(addBtn);
   if (maybeBoss) addBtn(maybeBoss);
+
+  // Ensure choices are visible
+  if (Engine.el.choicesBox) Engine.el.choicesBox.style.display = 'block';
 }
 
 function resolveChoice(choice){
@@ -406,9 +418,13 @@ function resolveChoice(choice){
     history: recentHistory()
   };
 
-  Weaver.turn(payload, localTurn).then((resp)=>{
-    applyTurnResult(resp, {r, mod, dc, total});
-  });
+Promise.resolve(Weaver.turn(payload, localTurn))
+    .then(resp => applyTurnResult(resp, { r, mod, dc, total }))
+    .catch(() => {
+      // absolute fallback: local narration if something unexpected happens
+      const resp = localTurn(payload);
+      applyTurnResult(resp, { r, mod, dc, total });
+    });
 }
 
 function freeTextAct(){
@@ -432,45 +448,45 @@ function freeTextAct(){
     history: recentHistory()
   };
 
-  Weaver.turn(payload, localTurn)
-    .then((resp)=> applyTurnResult(resp, {r, mod, dc, total}))
-    .catch(()=> {
+  Promise.resolve(Weaver.turn(payload, localTurn))
+    .then(resp => applyTurnResult(resp, { r, mod, dc, total }))
+    .catch(() => {
       // absolute fallback: local narration if something unexpected happens
       const resp = localTurn(payload);
-      applyTurnResult(resp, {r, mod, dc, total});
+      applyTurnResult(resp, { r, mod, dc, total });
     });
 }
 
 function applyTurnResult(resp, roll){
   const S = Engine.state;
 
-  // State patches
-  if (resp.flags_patch) {
-    Object.assign(S.flags, resp.flags_patch);
+  // --- State patches ---
+  if (resp?.flags_patch) Object.assign(S.flags, resp.flags_patch);
+  if (resp?.inventory_delta) {
+    const add = resp.inventory_delta.add || [];
+    const remove = resp.inventory_delta.remove || [];
+    S.character.inventory = S.character.inventory.filter(x => !remove.includes(x)).concat(add);
   }
-  if (resp.inventory_delta) {
-    const add = resp.inventory_delta.add||[], remove = resp.inventory_delta.remove||[];
-    S.character.inventory = S.character.inventory.filter(x=>!remove.includes(x)).concat(add);
-  }
-  if (typeof resp.gold_delta === 'number') {
+  if (typeof resp?.gold_delta === 'number') {
     S.character.Gold = Math.max(0, S.character.Gold + resp.gold_delta);
   }
 
-  // Beat text + roll glyph
-  appendBeat(resp.story_paragraph || '(silence)', `d20 ${roll.r} ${fmtMod(roll.mod)} vs DC ${roll.dc} ⇒ ${roll.total}`);
+  // --- Beat text + roll glyph ---
+  appendBeat(resp?.story_paragraph || '(silence)', `d20 ${roll.r} ${fmtMod(roll.mod)} vs DC ${roll.dc} ⇒ ${roll.total}`);
 
-  // Next choices
-  let maybeBoss = resp.maybe_boss_option || null;
-  renderChoices(resp.next_choices || makeChoiceSet(S.scene), maybeBoss);
-  
-  let next = resp.next_choices && resp.next_choices.length ? resp.next_choices : makeChoiceSet(Engine.state.scene);
-  renderChoices(next, maybeBoss);
-  
-  // scene stays or changes if response set it
-  if (resp.scene) S.scene = resp.scene;
+  // --- Scene (optional) ---
+  if (resp?.scene) S.scene = resp.scene;
 
-  // unlock gate if 2+ seals
+  // --- Boss gate heuristic ---
   if (!S.flags.bossReady && S.flags.seals.length >= 2) S.flags.bossReady = true;
+
+  // --- Next choices (single render) ---
+  const maybeBoss = resp?.maybe_boss_option || null;
+  const next = (resp?.next_choices && resp.next_choices.length)
+    ? resp.next_choices
+    : makeChoiceSet(S.scene);
+
+  renderChoices(next, maybeBoss);
 
   S.turn++;
   renderAll();
