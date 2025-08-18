@@ -1,1 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dwarven Deco Storyweaver</title>
+  <link rel="stylesheet" href="./public/css/skin.css" />
+</head>
+<body>
+  <!-- The same HTML body from your Canvas file up to (but not including) the <script> tag. -->
+  <!-- Tip: Copy the whole <body> content from Canvas and paste it here, BUT remove any <style> or <script>. -->
 
+  <!-- Mount point is already in that HTML (your existing DOM). Now load the engine: -->
+  <script type="module">
+    import { boot } from './public/js/engine.js';
+    boot();   // initializes listeners, UI, etc.
+  </script>
+</body>
+</html>
