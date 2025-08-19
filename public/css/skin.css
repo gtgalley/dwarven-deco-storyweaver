@@ -1,5 +1,19 @@
-:root{ --bg:#0c0f12; --bg2:#14181d; --ink:#e6d9a2; --gold:#d5a84a; --gold2:#9a6b24; --emerald:#3a6f5b; --crimson:#6a2e2e; --link:#e0c98a; }
-html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family: "Segoe UI", system-ui, -apple-system, Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;}
+:root{ --bg:#0c0f12; --bg2:#14181d; --ink:#e6d9a2; --gold:#d5a84a; --gold2:#9a6b24; --emerald:#3a6f5b; --crimson:#6a2e2e; --link:#e0c98a; --ink-dim:#c8bb87; }
+
+/* ---------- Base ---------- */
+html,body{
+  height:100%; margin:0; color:var(--ink);
+  font-family: "Josefin Sans","Segoe UI", system-ui, -apple-system, Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
+  letter-spacing:.2px;
+  background:
+    radial-gradient(1200px 800px at 20% 10%, #172027, #0c0f12 60%),
+    repeating-linear-gradient(135deg, rgba(213,168,74,.04) 0 8px, transparent 8px 16px),
+    var(--bg);
+}
+
+a{ color:var(--link) }
+
+/* ---------- Legacy canvas layout (kept for compatibility) ---------- */
 .wrap{display:grid;grid-template-columns: 390px 1fr;gap:0;height:100%;}
 @media (max-width: 1100px){.wrap{grid-template-columns:1fr;grid-template-rows: 52vh 48vh;}}
 
@@ -55,6 +69,7 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family
 
 .rollhint{font-size:.9em;opacity:.85;margin-left:6px;cursor:help}
 
+/* ---------- Modal (clarified) ---------- */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;}
 .modal.hidden{display:none !important;}
 .shade{position:fixed;inset:0;background:#0008;z-index:9998;}
@@ -63,5 +78,78 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family
 .modal .inner .content{padding:16px}
 .closeX{cursor:pointer;border:1px solid var(--gold2);padding:4px 8px;border-radius:6px}
 
-a{color:var(--link)}
+/* ---------- Typography upgrades ---------- */
+.brand, h1, h2, h3{
+  font-family: "Cinzel", serif;
+  letter-spacing:.5px;
+}
 
+/* ---------- Top bar & controls (for the engine.js layout) ---------- */
+.topbar{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 12px;
+  background:linear-gradient(180deg,#171a20,#11151a);
+  border-bottom:1px solid #2b2f36;
+}
+.topbar .brand .tag{
+  margin-left:8px;
+}
+.tag{
+  background:rgba(213,168,74,.08);
+  border:1px solid var(--gold2);
+  color:var(--gold);
+  padding:2px 8px;border-radius:999px;
+}
+.controls button{
+  border:1px solid #3a3326;
+  background:linear-gradient(180deg,#1f1c16,#141316);
+  color:#e8ddba;
+  border-radius:8px; padding:6px 10px;
+  transition:transform .06s ease, box-shadow .15s ease, filter .15s ease;
+  cursor:pointer;
+}
+.controls button:hover{
+  filter:brightness(1.07);
+  box-shadow:0 0 0 1px var(--gold2) inset;
+}
+.controls button:active{ transform:translateY(1px); }
+
+/* ---------- Story scroller (engine.js layout) ---------- */
+.story-scroll{
+  background:radial-gradient(1000px 600px at 15% 0%, rgba(213,168,74,.05), transparent),
+             #0f1016;
+  border:1px solid #2b2b35;
+  border-radius:10px;
+  padding:14px;
+  min-height:52vh; max-height:68vh; overflow:auto;
+}
+.story-scroll p{ margin:0 0 12px 0; line-height:1.45; }
+
+/* ---------- Choice buttons (support both class names) ---------- */
+.choice-btn,
+.choice{
+  border:1px solid #3a3326;
+  background:linear-gradient(180deg,#1c1a16,#121115);
+  color:var(--ink);
+  border-radius:8px;
+  transition:transform .06s ease, box-shadow .15s ease, filter .15s ease;
+}
+.choice-btn:hover,
+.choice:hover{
+  filter:brightness(1.06);
+  box-shadow:0 0 0 1px var(--gold2) inset;
+}
+.choice-btn:active,
+.choice:active{ transform:translateY(1px); }
+
+/* ---------- Free text input (engine.js layout) ---------- */
+.free input,
+.inputbar input{
+  border:1px solid #3a3326;
+  background:#121217;
+  color:var(--ink);
+  border-radius:8px;
+}
+
+/* ---------- Small helpers ---------- */
+a:hover{ filter:brightness(1.05) }
