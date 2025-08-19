@@ -172,9 +172,11 @@ function buildUI() {
     .free input { flex:1; padding:8px; border-radius:6px; border:1px solid #343444; background:#15151d; color:#ddd; }
     .side { flex: 1 1 30%; display:flex; flex-direction:column; gap:12px; }
     .card { background:#111118; border:1px solid #2b2b35; border-radius:8px; padding:12px; }
-    .shade { position:fixed; inset:0; background:#0008; }
-    .modal { position:fixed; top:10%; left:50%; transform:translateX(-50%); width:min(600px, 92vw); background:#15151d; border:1px solid #3a3a48; border-radius:10px; padding:16px; }
-    .hidden { display:none; }
+   .shade { position:fixed; inset:0; background:#0008; z-index:9998; display:none; }
+    .modal { position:fixed; top:10%; left:50%; transform:translateX(-50%); width:min(600px,92vw); background:#15151d; border:1px solid #3a3a48; border-radius:10px; padding:16px; z-index:9999; display:none; }
+    .modal:not(.hidden) { display:block; }
+    .shade:not(.hidden) { display:block; }
+    .hidden { display:none !important; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0; }
     label { display:block; margin:6px 0; }
     input[type="text"], input[type="number"] { width:100%; padding:6px 8px; border-radius:6px; border:1px solid #36364a; background:#12121a; color:#eaeaf1; }
