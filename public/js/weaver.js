@@ -1,41 +1,34 @@
 // public/js/weaver.js
-// Minimal "Weaver" bridge that can switch between Local (built-in)
-// and Live (serverless endpoint) without breaking your UI.
+// v0.4 — simple bridge with local mode (default) and optional live endpoint.
 
-export function makeWeaver(store, logFn, setEngineTag) {
+export function makeWeaver(store, log, setTag){
   let mode = 'local';
-  let endpoint = store.get('dm_endpoint', '/dm-turn'); // you can change later in UI
+  let endpoint = '/dm-turn';
 
-  function setMode(m) {
+  function setMode(m){
     mode = (m === 'live') ? 'live' : 'local';
-    setEngineTag(mode === 'live' ? 'Live' : 'Local');
+    setTag && setTag(mode==='live' ? 'Live' : 'Local');
   }
+  function setEndpoint(url){ endpoint = url || '/dm-turn'; }
 
-  function setEndpoint(u) {
-    endpoint = u && u.trim() ? u.trim() : '/dm-turn';
-    store.set('dm_endpoint', endpoint);
-  }
+  async function turn(payload, localFallback){
+    if (mode !== 'live') return localFallback(payload);
 
-  async function turn(payload, localTurn) {
-    if (mode !== 'live') return localTurn(payload);
-    try {
+    try{
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const json = await res.json();
-      return json;
-    } catch (err) {
-      logFn?.('Live DM unavailable — falling back to Local.');
-      return localTurn(payload);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return data;
+    }catch(e){
+      log && log(`Live DM error: ${e.message}. Falling back.`);
+      setMode('local');
+      return localFallback(payload);
     }
   }
 
-  return {
-    get mode(){ return mode; },
-    get endpoint(){ return endpoint; },
-    setMode, setEndpoint, turn
-  };
+  return { mode, endpoint, setMode, setEndpoint, turn };
 }
