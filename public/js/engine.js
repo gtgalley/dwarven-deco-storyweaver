@@ -64,6 +64,26 @@ export function boot() {
   // auto-begin if no beats yet
   if (Engine.state.storyBeats.length === 0) beginTale();
 }
+// Close any open modal with ESC once.
+if (!Engine._escWired) {
+  Engine._escWired = true;
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' &&
+        Engine.el.modalShade &&
+        !Engine.el.modalShade.classList.contains('hidden')) {
+      const open = document.querySelector('.modal:not(.hidden)');
+      if (open) closeModal(open);
+    }
+  });
+}
+// Click the shade to close the currently open modal.
+if (Engine.el.modalShade && !Engine.el.modalShade._wired) {
+  Engine.el.modalShade._wired = true;
+  Engine.el.modalShade.onclick = () => {
+    const open = document.querySelector('.modal:not(.hidden)');
+    if (open) closeModal(open);
+  };
+}
 
 /* ---------- UI construction ---------- */
 function buildUI() {
@@ -331,8 +351,7 @@ function openModal(m){
     if (Engine.el.modalShade) Engine.el.modalShade.classList.remove('hidden');
     if (m) m.classList.remove('hidden');
   } catch (e) {
-    appendBeat(`[modal error] ${e.message}`);
-    renderAll();
+    appendBeat(`[modal error] ${e.message}`); renderAll();
   }
 }
 function closeModal(m){
@@ -340,8 +359,7 @@ function closeModal(m){
     if (Engine.el.modalShade) Engine.el.modalShade.classList.add('hidden');
     if (m) m.classList.add('hidden');
   } catch (e) {
-    appendBeat(`[modal error] ${e.message}`);
-    renderAll();
+    appendBeat(`[modal error] ${e.message}`); renderAll();
   }
 }
 function toast(txt){
