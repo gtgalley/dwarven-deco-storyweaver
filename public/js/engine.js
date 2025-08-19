@@ -58,6 +58,8 @@ export function boot() {
 });
   hydrateFromStorage();
   bindHandlers();
+  window.addEventListener('error', e => { appendBeat(`[script error] ${e.message}`); renderAll(); });
+  window.addEventListener('unhandledrejection', e => { appendBeat(`[promise error] ${e.reason}`); renderAll(); });
   renderAll();
   // auto-begin if no beats yet
   if (Engine.state.storyBeats.length === 0) beginTale();
@@ -234,7 +236,40 @@ function bindHandlers() {
     if (Weaver.mode === 'live'){ Weaver.setMode('local'); Engine.el.btnLive.textContent = 'Live DM: Off'; }
     else { Weaver.setMode('live'); Engine.el.btnLive.textContent = 'Live DM: On'; }
   };
-  Engine.el.btnDMConfig.onclick = () => { openModal(Engine.el.modalDM); Engine.el.dmEndpoint.value = Weaver.endpoint; };
+  Engine.el.btnDMConfig.onclick = () => {
+  try {
+    // Re-grab nodes in case something was rebuilt
+    Engine.el.modalDM    = Engine.el.modalDM    || document.getElementById('modalDM');
+    Engine.el.dmEndpoint = Engine.el.dmEndpoint || document.getElementById('dmEndpoint');
+    Engine.el.btnSaveDM  = Engine.el.btnSaveDM  || document.getElementById('btnSaveDM');
+    Engine.el.btnCancelDM= Engine.el.btnCancelDM|| document.getElementById('btnCancelDM');
+
+    if (!Engine.el.modalDM) throw new Error('DM modal not found');
+    if (!Engine.el.dmEndpoint) throw new Error('DM endpoint input not found');
+
+    // Prime the field with current endpoint
+    Engine.el.dmEndpoint.value = Weaver.endpoint || '/dm-turn';
+
+    // (Re)attach save/cancel once to be safe
+    if (Engine.el.btnSaveDM && !Engine.el.btnSaveDM._wired) {
+      Engine.el.btnSaveDM._wired = true;
+      Engine.el.btnSaveDM.onclick = () => {
+        Weaver.setEndpoint(Engine.el.dmEndpoint.value.trim());
+        closeModal(Engine.el.modalDM);
+        toast('Endpoint saved');
+      };
+    }
+    if (Engine.el.btnCancelDM && !Engine.el.btnCancelDM._wired) {
+      Engine.el.btnCancelDM._wired = true;
+      Engine.el.btnCancelDM.onclick = () => closeModal(Engine.el.modalDM);
+    }
+
+    openModal(Engine.el.modalDM);
+  } catch (e) {
+    appendBeat(`[DM Config] ${e.message}`);
+    renderAll();
+  }
+};
   Engine.el.btnSaveDM.onclick = () => { Weaver.setEndpoint(Engine.el.dmEndpoint.value); closeModal(Engine.el.modalDM); toast('Endpoint saved'); };
   Engine.el.btnCancelDM.onclick = () => closeModal(Engine.el.modalDM);
 
@@ -289,8 +324,24 @@ function renderAll() {
 }
 
 /* ---------- Modals ---------- */
-function openModal(m){ Engine.el.modalShade.classList.remove('hidden'); m.classList.remove('hidden'); }
-function closeModal(m){ Engine.el.modalShade.classList.add('hidden'); m.classList.add('hidden'); }
+function openModal(m){
+  try {
+    if (Engine.el.modalShade) Engine.el.modalShade.classList.remove('hidden');
+    if (m) m.classList.remove('hidden');
+  } catch (e) {
+    appendBeat(`[modal error] ${e.message}`);
+    renderAll();
+  }
+}
+function closeModal(m){
+  try {
+    if (Engine.el.modalShade) Engine.el.modalShade.classList.add('hidden');
+    if (m) m.classList.add('hidden');
+  } catch (e) {
+    appendBeat(`[modal error] ${e.message}`);
+    renderAll();
+  }
+}
 function toast(txt){
   const t = document.createElement('div');
   t.textContent = txt;
