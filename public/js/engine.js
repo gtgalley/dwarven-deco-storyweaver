@@ -49,40 +49,91 @@ const Weaver = makeWeaver(store,
   (tag)=>{ const t = $('#engineTag'); if (t) t.textContent = tag; }
 );
 
+/* ---------- simple sound (no external files) ---------- */
+const Sound = (() => {
+  let ctx, master, ui, amb, on = false;
+
+  function init(){
+    if (ctx) return;
+    ctx = new (window.AudioContext||window.webkitAudioContext)();
+
+    master = ctx.createGain(); master.gain.value = 0.6; master.connect(ctx.destination);
+    ui = ctx.createGain(); ui.gain.value = 0.7; ui.connect(master);
+    amb = ctx.createGain(); amb.gain.value = 0.0; amb.connect(master);
+
+    // ambience: slow oscillators + filtered noise
+    const o1=ctx.createOscillator(); o1.type='sine'; o1.frequency.value=110;
+    const g1=ctx.createGain(); g1.gain.value=0.02; o1.connect(g1).connect(amb); o1.start();
+    const o2=ctx.createOscillator(); o2.type='triangle'; o2.frequency.value=165;
+    const g2=ctx.createGain(); g2.gain.value=0.015; o2.connect(g2).connect(amb); o2.start();
+    const l1=ctx.createOscillator(); const lg1=ctx.createGain();
+    l1.type='sine'; l1.frequency.value=0.08; lg1.gain.value=0.012; l1.connect(lg1).connect(g1.gain); l1.start();
+
+    const noise=ctx.createBuffer(1, ctx.sampleRate*2, ctx.sampleRate);
+    const data=noise.getChannelData(0); for(let i=0;i<data.length;i++) data[i]=(Math.random()*2-1)*0.08;
+    const ns=ctx.createBufferSource(); ns.buffer=noise; ns.loop=true;
+    const nf=ctx.createBiquadFilter(); nf.type='lowpass'; nf.frequency.value=600;
+    const ng=ctx.createGain(); ng.gain.value=0.05; ns.connect(nf).connect(ng).connect(amb); ns.start();
+  }
+
+  function toggleAmb(){
+    init(); on=!on; if(ctx.state==='suspended') ctx.resume();
+    amb.gain.cancelScheduledValues(ctx.currentTime);
+    amb.gain.linearRampToValueAtTime(on?0.35:0, ctx.currentTime+0.6);
+    return on;
+  }
+
+  function uiClick(){
+    if(!ctx) return;
+    const t=ctx.currentTime; const o=ctx.createOscillator(); o.type='triangle';
+    o.frequency.setValueAtTime(880, t); o.frequency.exponentialRampToValueAtTime(440, t+0.08);
+    const g=ctx.createGain(); g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.25, t+0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.18);
+    o.connect(g).connect(ui); o.start(t); o.stop(t+0.2);
+  }
+
+  // gentle hover chime
+  function uiHover(){
+    if(!ctx) return;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(1320, t);
+    o.frequency.exponentialRampToValueAtTime(990, t+0.06);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.18, t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.12);
+    o.connect(g).connect(ui); o.start(t); o.stop(t+0.14);
+  }
+
+  function dice(){
+    if(!ctx) return; const t=ctx.currentTime;
+    const o=ctx.createOscillator(); o.type='square';
+    o.frequency.setValueAtTime(600,t);
+    o.frequency.exponentialRampToValueAtTime(140,t+0.14);
+    const g=ctx.createGain(); g.gain.value=0.0001;
+    g.gain.exponentialRampToValueAtTime(0.3, t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.24);
+    o.connect(g).connect(ui); o.start(t); o.stop(t+0.25);
+  }
+
+  return { toggleAmb, uiClick, uiHover, dice, ensure:init };
+})();
+
 /* ---------- UI boot ---------- */
 export function boot() {
   buildUI();
-  window.addEventListener('error', (e)=>{
-  appendBeat(`[script error] ${e.message}`);
-  renderAll();
-});
   hydrateFromStorage();
   bindHandlers();
+
+  // show script/promise errors as visible beats
   window.addEventListener('error', e => { appendBeat(`[script error] ${e.message}`); renderAll(); });
   window.addEventListener('unhandledrejection', e => { appendBeat(`[promise error] ${e.reason}`); renderAll(); });
+
   renderAll();
   // auto-begin if no beats yet
   if (Engine.state.storyBeats.length === 0) beginTale();
-}
-// Close any open modal with ESC once.
-if (!Engine._escWired) {
-  Engine._escWired = true;
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' &&
-        Engine.el.modalShade &&
-        !Engine.el.modalShade.classList.contains('hidden')) {
-      const open = document.querySelector('.modal:not(.hidden)');
-      if (open) closeModal(open);
-    }
-  });
-}
-// Click the shade to close the currently open modal.
-if (Engine.el.modalShade && !Engine.el.modalShade._wired) {
-  Engine.el.modalShade._wired = true;
-  Engine.el.modalShade.onclick = () => {
-    const open = document.querySelector('.modal:not(.hidden)');
-    if (open) closeModal(open);
-  };
 }
 
 /* ---------- UI construction ---------- */
@@ -192,7 +243,7 @@ function buildUI() {
     .free input { flex:1; padding:8px; border-radius:6px; border:1px solid #343444; background:#15151d; color:#ddd; }
     .side { flex: 1 1 30%; display:flex; flex-direction:column; gap:12px; }
     .card { background:#111118; border:1px solid #2b2b35; border-radius:8px; padding:12px; }
-   .shade { position:fixed; inset:0; background:#0008; z-index:9998; display:none; }
+    .shade { position:fixed; inset:0; background:#0008; z-index:9998; display:none; }
     .modal { position:fixed; top:10%; left:50%; transform:translateX(-50%); width:min(600px,92vw); background:#15151d; border:1px solid #3a3a48; border-radius:10px; padding:16px; z-index:9999; display:none; }
     .modal:not(.hidden) { display:block; }
     .shade:not(.hidden) { display:block; }
@@ -245,6 +296,9 @@ function hydrateFromStorage() {
 }
 
 function bindHandlers() {
+  // Ensure AudioContext starts on first user interaction
+  document.addEventListener('pointerdown', ()=>Sound.ensure(), { once:true });
+
   Engine.el.btnEdit.onclick = openEdit;
   Engine.el.btnAuto.onclick = autoGen;
   Engine.el.btnBegin.onclick = beginTale;
@@ -258,48 +312,70 @@ function bindHandlers() {
     if (Weaver.mode === 'live'){ Weaver.setMode('local'); Engine.el.btnLive.textContent = 'Live DM: Off'; }
     else { Weaver.setMode('live'); Engine.el.btnLive.textContent = 'Live DM: On'; }
   };
+
   Engine.el.btnDMConfig.onclick = () => {
-  try {
-    // Re-grab nodes in case something was rebuilt
-    Engine.el.modalDM    = Engine.el.modalDM    || document.getElementById('modalDM');
-    Engine.el.dmEndpoint = Engine.el.dmEndpoint || document.getElementById('dmEndpoint');
-    Engine.el.btnSaveDM  = Engine.el.btnSaveDM  || document.getElementById('btnSaveDM');
-    Engine.el.btnCancelDM= Engine.el.btnCancelDM|| document.getElementById('btnCancelDM');
+    try {
+      // Re-grab nodes in case something was rebuilt
+      Engine.el.modalDM    = Engine.el.modalDM    || document.getElementById('modalDM');
+      Engine.el.dmEndpoint = Engine.el.dmEndpoint || document.getElementById('dmEndpoint');
+      Engine.el.btnSaveDM  = Engine.el.btnSaveDM  || document.getElementById('btnSaveDM');
+      Engine.el.btnCancelDM= Engine.el.btnCancelDM|| document.getElementById('btnCancelDM');
 
-    if (!Engine.el.modalDM) throw new Error('DM modal not found');
-    if (!Engine.el.dmEndpoint) throw new Error('DM endpoint input not found');
+      if (!Engine.el.modalDM) throw new Error('DM modal not found');
+      if (!Engine.el.dmEndpoint) throw new Error('DM endpoint input not found');
 
-    // Prime the field with current endpoint
-    Engine.el.dmEndpoint.value = Weaver.endpoint || '/dm-turn';
+      // Prime the field with current endpoint
+      Engine.el.dmEndpoint.value = Weaver.endpoint || '/dm-turn';
 
-    // (Re)attach save/cancel once to be safe
-    if (Engine.el.btnSaveDM && !Engine.el.btnSaveDM._wired) {
-      Engine.el.btnSaveDM._wired = true;
-      Engine.el.btnSaveDM.onclick = () => {
-        Weaver.setEndpoint(Engine.el.dmEndpoint.value.trim());
-        closeModal(Engine.el.modalDM);
-        toast('Endpoint saved');
-      };
+      // (Re)attach save/cancel once to be safe
+      if (Engine.el.btnSaveDM && !Engine.el.btnSaveDM._wired) {
+        Engine.el.btnSaveDM._wired = true;
+        Engine.el.btnSaveDM.onclick = () => {
+          Weaver.setEndpoint(Engine.el.dmEndpoint.value.trim());
+          closeModal(Engine.el.modalDM);
+          toast('Endpoint saved');
+        };
+      }
+      if (Engine.el.btnCancelDM && !Engine.el.btnCancelDM._wired) {
+        Engine.el.btnCancelDM._wired = true;
+        Engine.el.btnCancelDM.onclick = () => closeModal(Engine.el.modalDM);
+      }
+
+      openModal(Engine.el.modalDM);
+    } catch (e) {
+      appendBeat(`[DM Config] ${e.message}`);
+      renderAll();
     }
-    if (Engine.el.btnCancelDM && !Engine.el.btnCancelDM._wired) {
-      Engine.el.btnCancelDM._wired = true;
-      Engine.el.btnCancelDM.onclick = () => closeModal(Engine.el.modalDM);
-    }
+  };
 
-    openModal(Engine.el.modalDM);
-  } catch (e) {
-    appendBeat(`[DM Config] ${e.message}`);
-    renderAll();
-  }
-};
-  Engine.el.btnSaveDM.onclick = () => { Weaver.setEndpoint(Engine.el.dmEndpoint.value); closeModal(Engine.el.modalDM); toast('Endpoint saved'); };
-  Engine.el.btnCancelDM.onclick = () => closeModal(Engine.el.modalDM);
-
+  // Character modal save/cancel
   Engine.el.btnEditSave.onclick = saveEdit;
   Engine.el.btnEditCancel.onclick = () => closeModal(Engine.el.modalEdit);
 
+  // Free-text action
   Engine.el.btnAct.onclick = () => freeTextAct();
   Engine.el.freeText.addEventListener('keydown', (e)=>{ if (e.key==='Enter') freeTextAct(); });
+
+  // Close any open modal with ESC once
+  if (!Engine._escWired) {
+    Engine._escWired = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' &&
+          Engine.el.modalShade &&
+          !Engine.el.modalShade.classList.contains('hidden')) {
+        const open = document.querySelector('.modal:not(.hidden)');
+        if (open) closeModal(open);
+      }
+    });
+  }
+  // Click the shade to close the currently open modal
+  if (Engine.el.modalShade && !Engine.el.modalShade._wired) {
+    Engine.el.modalShade._wired = true;
+    Engine.el.modalShade.onclick = () => {
+      const open = document.querySelector('.modal:not(.hidden)');
+      if (open) closeModal(open);
+    };
+  }
 }
 
 function renderAll() {
@@ -342,7 +418,15 @@ function renderAll() {
   }
   Engine.el.storyScroll.scrollTop = Engine.el.storyScroll.scrollHeight;
 
-  // choices will be re-rendered per-turn
+  // Hover chime for toolbar buttons (wire once)
+  $$('.controls button').forEach(b => {
+    if (!b._hoverWired) {
+      b._hoverWired = true;
+      b.addEventListener('mouseenter', () => Sound.uiHover());
+    }
+  });
+
+  // choices will be re-rendered per-turn elsewhere
 }
 
 /* ---------- Modals ---------- */
@@ -452,7 +536,6 @@ function renderChoices(choices, maybeBoss){
   const list = Engine.el.choiceList || Engine.el.choicesBox;
   if (!list) return;
 
-  // If we fell back to the box, make sure it's empty.
   list.innerHTML = '';
 
   const addBtn = (ch) => {
@@ -460,7 +543,8 @@ function renderChoices(choices, maybeBoss){
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
     btn.textContent = ch.sentence;
-    btn.onclick = () => resolveChoice(ch);
+    btn.onclick = () => { Sound.uiClick(); resolveChoice(ch); };
+    btn.addEventListener('mouseenter', () => Sound.uiHover(), { once:false });
     list.appendChild(btn);
   };
 
@@ -472,7 +556,9 @@ function renderChoices(choices, maybeBoss){
 }
 
 function resolveChoice(choice){
-  // Determine DC; do roll locally
+  // sound + Determine DC; do roll locally
+  Sound.dice();
+
   const S = Engine.state, C = S.character;
   const stat = choice.stat;
   const mod = modFromScore(C[stat]);
@@ -489,7 +575,7 @@ function resolveChoice(choice){
     history: recentHistory()
   };
 
-Promise.resolve(Weaver.turn(payload, localTurn))
+  Promise.resolve(Weaver.turn(payload, localTurn))
     .then(resp => applyTurnResult(resp, { r, mod, dc, total }))
     .catch(() => {
       // absolute fallback: local narration if something unexpected happens
@@ -503,6 +589,9 @@ function freeTextAct(){
   if (!text) return;
   Engine.el.freeText.value = '';
 
+  // little click + dice
+  Sound.uiClick();
+
   const stat = inferStat(text);
   const S = Engine.state, C = S.character;
   const mod = modFromScore(C[stat]);
@@ -510,6 +599,8 @@ function freeTextAct(){
   const r = rnd(1,20);
   const total = r + mod;
   const passed = (total >= dc);
+
+  Sound.dice();
 
   const payload = {
     action: text,
