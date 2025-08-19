@@ -55,7 +55,9 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family
 
 .rollhint{font-size:.9em;opacity:.85;margin-left:6px;cursor:help}
 
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.modal.hidden{display:none !important;}
+.shade{position:fixed;inset:0;background:#0008;z-index:9998;}
 .modal .inner{width:min(760px,92vw);background:#0e141a;border:1px solid var(--gold2);border-radius:12px;box-shadow: 0 20px 80px rgba(0,0,0,.5)}
 .modal .inner header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--gold2)}
 .modal .inner .content{padding:16px}
