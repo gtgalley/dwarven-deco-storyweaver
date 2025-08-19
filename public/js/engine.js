@@ -1,4 +1,4 @@
-// public/js/engine.js
+// public/js/engine.js 
 // v0.4 — centered masthead; higher-contrast UI; two-choice structure; optional "Continue Story";
 // softer sounds; HP/Gold/Items logic; death/last-stand flow; boss cooldown & win paths;
 // success/fail beat glow; hover & click polish.
